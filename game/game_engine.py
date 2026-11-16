@@ -34,6 +34,21 @@ class Laser:
         )
 
 
+class ShieldOrb:
+    radius = 12
+
+    def __init__(self, x, y=-12):
+        self.x = x
+        self.y = y
+
+    def update(self):
+        self.y += 2
+
+    def draw(self, screen):
+        pygame.draw.circle(screen, (70, 215, 245), (self.x, self.y), self.radius, 2)
+        pygame.draw.circle(screen, (170, 245, 255), (self.x, self.y), 5)
+
+
 class GameEngine:
     def __init__(self):
         pygame.init()
@@ -79,6 +94,9 @@ class GameEngine:
 
         self.meteors = []
         self.lasers = []
+        self.orbs = []
+        self.orb_timer = 0
+        self.shielded = False
 
         self.timer = 0
         self.spawn_interval = 60
@@ -107,6 +125,7 @@ class GameEngine:
                     # Restart after game over
                     elif self.game_over:
                         self.reset()
+                        self.started = True
 
                     # Fire laser during active gameplay
                     else:
@@ -150,16 +169,34 @@ class GameEngine:
                 self.spawn_interval - 0.3
             )
 
-        # Update meteors
-        for meteor in self.meteors:
+        self.orb_timer += 1
+        if self.orb_timer >= 8 * FPS:
+            self.orbs.append(ShieldOrb(random.randint(24, WIDTH - 24)))
+            self.orb_timer = 0
 
-            meteor.update()
-
-            # Meteor hits ship
-            if meteor.collides(
-                self.ship.rect
+        remaining_orbs = []
+        for orb in self.orbs:
+            orb.update()
+            if self.ship.rect.inflate(orb.radius * 2, orb.radius * 2).collidepoint(
+                orb.x, orb.y
             ):
+                self.shielded = True
+            elif orb.y - orb.radius <= HEIGHT:
+                remaining_orbs.append(orb)
+        self.orbs = remaining_orbs
+
+        self.shield_lost = False
+        surviving_meteors = []
+        for meteor in self.meteors:
+            meteor.update()
+            if meteor.collides(self.ship.rect):
+                if self.shielded:
+                    self.shielded = False
+                    self.shield_lost = True
+                    continue
                 self.game_over = True
+            surviving_meteors.append(meteor)
+        self.meteors = surviving_meteors
 
         # Update lasers
         for laser in self.lasers:
@@ -274,10 +311,18 @@ class GameEngine:
                 self.screen
             )
 
+        for orb in self.orbs:
+            orb.draw(self.screen)
+
         # Ship
         self.ship.draw(
             self.screen
         )
+
+        if self.shielded:
+            pygame.draw.circle(
+                self.screen, (70, 215, 245), self.ship.rect.center, 26, 2
+            )
 
         # Score
         sc = self.font.render(
