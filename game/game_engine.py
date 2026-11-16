@@ -101,6 +101,9 @@ class GameEngine:
         self.timer = 0
         self.spawn_interval = 60
         self.score = 0
+        self.survived_frames = 0
+        self.clean_frames = 0
+        self.multiplier = 1
 
         self.game_over = False
         self.started = False
@@ -283,7 +286,15 @@ class GameEngine:
         ]
 
         # Score
-        self.score += 1
+        if self.game_over:
+            return
+        self.survived_frames += 1
+        if self.shield_lost:
+            self.clean_frames = 0
+        else:
+            self.clean_frames += 1
+        self.multiplier = 1 + self.clean_frames // (10 * FPS)
+        self.score += self.multiplier
 
     def draw(self):
 
@@ -326,7 +337,7 @@ class GameEngine:
 
         # Score
         sc = self.font.render(
-            f"Time: {self.score // 60}s",
+            f"Time: {self.survived_frames // FPS}s  Score: {self.score}  {self.multiplier}x",
             True,
             (200, 200, 240)
         )
@@ -378,7 +389,7 @@ class GameEngine:
             )
 
             score_message = self.font.render(
-                f"Survived {self.score // 60}s | "
+                f"Survived {self.survived_frames // FPS}s | "
                 "SPACE to Restart",
                 True,
                 (200, 200, 200)
